@@ -169,3 +169,21 @@ body {
   padding-top: 1rem;
   border-top: 1px solid #555;
 }
+
+.logo-link {
+  text-decoration: none;
+  color: inherit;
+}
+
+.solar-view{
+  position: relative;
+  width: 820px;
+  margin: 0 auto;      
+  text-align: center;
+}
+
+.solar-view svg {
+  display: block;
+  margin: 0 auto;       /* centers the svg inside the div */
+  border: 1px solid #ccc;
+}

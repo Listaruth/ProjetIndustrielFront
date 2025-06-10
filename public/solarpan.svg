@@ -1,0 +1,28 @@
+<svg width="120" height="60" viewBox="0 0 120 60" xmlns="http://www.w3.org/2000/svg">
+  <!-- Blue panel background -->
+  <rect width="120" height="60" rx="8" ry="8" fill="#004466" stroke="#88ccff" stroke-width="3"></rect>
+  
+  <g stroke="#88ccff" stroke-width="1.5">
+    <!-- vertical grid lines -->
+    <line x1="15" y1="8" x2="15" y2="52"></line>
+    <line x1="30" y1="8" x2="30" y2="52"></line>
+    <line x1="45" y1="8" x2="45" y2="52"></line>
+    <line x1="60" y1="8" x2="60" y2="52"></line>
+    <line x1="75" y1="8" x2="75" y2="52"></line>
+    <line x1="90" y1="8" x2="90" y2="52"></line>
+    <line x1="105" y1="8" x2="105" y2="52"></line>
+    
+    <!-- horizontal grid lines -->
+    <line x1="10" y1="16" x2="110" y2="16"></line>
+    <line x1="10" y1="28" x2="110" y2="28"></line>
+    <line x1="10" y1="40" x2="110" y2="40"></line>
+    <line x1="10" y1="52" x2="110" y2="52"></line>
+
+    <!-- top horizontal line -->
+    <line x1="10" y1="8" x2="110" y2="8"></line>
+    <!-- left vertical line -->
+    <line x1="10" y1="8" x2="10" y2="52"></line>
+    <!-- right vertical line -->
+    <line x1="110" y1="8" x2="110" y2="52"></line>
+  </g>
+</svg>

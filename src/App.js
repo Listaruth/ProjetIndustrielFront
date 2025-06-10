@@ -6,17 +6,29 @@ import About from './components/about';
 import Contact from './components/contact';
 import Footer from './components/footer';
 import './App.css';
+import { Routes, Route } from 'react-router-dom';
+import SolarView from './components/solarview';
 
 function App() {
   return (
-    <div className="App">
+    <>
       <Navbar />
-      <Hero />
-      <Solutions />
-      <About />
-      <Contact />
-      <Footer />
-    </div>
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <div className="App">
+              <Hero />
+              <Solutions />
+              <About />
+              <Contact />
+              <Footer />
+            </div>
+          }
+        />
+        <Route path="/solarview" element={<SolarView />} />
+      </Routes>
+    </>
   );
 }
 
