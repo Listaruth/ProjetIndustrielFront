@@ -6,10 +6,17 @@ const NotificationBell = ({ panelData = [] }) => {
   const dropdownRef = useRef(null);
 
   useEffect(() => {
+    const fetchAlerts = () => {
     fetch('http://localhost:3000/api/alerts')
       .then(res => res.json())
       .then(data => setAlerts(data.data || []))
       .catch(console.error);
+  };
+
+  fetchAlerts();
+  
+  const intervalId = setInterval(fetchAlerts, 5000); // Fetch alerts every 5 seconds
+    return () => clearInterval(intervalId); // Cleanup on unmount
   }, []);
 
   useEffect(() => {
@@ -35,6 +42,10 @@ const NotificationBell = ({ panelData = [] }) => {
         1: 'SP1001',
         2: 'SP1002',
         3: 'SP1003',
+        4: 'SP1004',
+        5: 'SP1005',
+        6: 'SP1006',
+        7: 'SP1007',
     };
   
   const getPanelName = (panelId) => {
