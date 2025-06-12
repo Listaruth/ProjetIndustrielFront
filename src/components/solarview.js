@@ -1,261 +1,195 @@
 import React, { useState, useEffect } from 'react';
-import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid, ResponsiveContainer } from 'recharts';
-
-const panelPositions = [
-  { serial_number: 'SP1001', x: 50,  y: 100 },
-  { serial_number: 'SP1002', x: 200, y: 100 },
-  { serial_number: 'SP1003', x: 350, y: 100 },
-];
 
 const getColor = (status) => {
   switch (status) {
-    case 'Active': return '#28a745';    // green
-    case 'Warning': return '#ffc107';   // yellow / amber
-    case 'Fault': return '#dc3545';     // red
-    default: return '#6c757d'; // gray (unknown or inactive)
+    case 'Active': return '#28a745';
+    case 'Warning': return '#ffc107';
+    case 'Faulty': return '#dc3545';
+    default: return '#6c757d';
   }
 };
 
 function SolarView() {
-  // Panel data
   const [panelData, setPanelData] = useState([]);
   const [hovered, setHovered] = useState(null);
+  const [selected, setSelected] = useState(null);
   const [pos, setPos] = useState({ x: 0, y: 0 });
 
-  // Performance graph states
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-
-  // Input and selected panelId for graph
-  const [panelIdInput, setPanelIdInput] = useState('1'); // default as string "1"
-  const [panelId, setPanelId] = useState(1); // default numeric 1
-
-  // Fetch panel info list once
   useEffect(() => {
     fetch('http://localhost:3000/api/solarpanel')
       .then(res => res.json())
       .then(data => {
         setPanelData(data.info);
+        if (data.info.length > 0) {
+          setSelected(data.info[0]); // Default to first panel
+        }
       })
-      .catch(err => {
-        console.error("API error:", err);
-      });
+      .catch(err => console.error("API error:", err));
   }, []);
 
-  // Fetch performance data when panelId changes
-  useEffect(() => {
-    if (!panelId) return;
-
-    setLoading(true);
-    setError(null);
-
-    fetch(`http://localhost:3000/api/solarpanel/performance/${panelId}`)
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to fetch performance data');
-        return res.json();
-      })
-      .then(json => {
-        if (json.info && json.info.length > 0) {
-          setData(json.info);
-        } else {
-          setData([]);
-          setError('No performance data available');
-        }
-        setLoading(false);
-      })
-      .catch(err => {
-        setError(err.message);
-        setData([]);
-        setLoading(false);
-      });
-  }, [panelId]);
-
-  const mergedPanels = panelData.map(panel => {
-    const position = panelPositions.find(p => p.serial_number === panel.serial_number);
-    if (!position) return null;
-    return { ...panel, ...position };
-  }).filter(Boolean);
-
-  const handleInputChange = (e) => {
-    setPanelIdInput(e.target.value);
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const num = parseInt(panelIdInput, 10);
-    if (!isNaN(num)) {
-      setPanelId(num);
-      setError(null);
-    } else {
-      setError('Please enter a valid numeric Panel ID');
-      setData([]);
-    }
-  };
+  const displayedPanel = selected || panelData[0];
 
   return (
-    <>
-      <div className='solar-view' style={{ maxWidth: 900, margin: 'auto', padding: 20 }}>
-        <h2>Solar Panel Diagnostic Dashboard</h2>
-        <svg width="800" height="400" style={{ border: '1px solid #ccc' }}>
-          {mergedPanels.map(panel => (
-            <React.Fragment key={panel.serial_number}>
-              <rect
-                x={panel.x - 3}
-                y={panel.y - 3}
-                width={126}
-                height={66}
-                rx={12}
-                fill="none"
-                stroke={getColor(panel.status)}
-                strokeWidth={4}
-                onMouseEnter={() => setHovered(panel)}
-                onMouseMove={(e) => setPos({ x: e.clientX, y: e.clientY })}
-                onMouseLeave={() => setHovered(null)}
-                style={{ cursor: 'pointer' }}
-              />
-              <image
-                href="/solarpan.svg"
-                x={panel.x}
-                y={panel.y}
-                width={120}
-                height={60}
-                onMouseEnter={() => setHovered(panel)}
-                onMouseMove={(e) => setPos({ x: e.clientX, y: e.clientY })}
-                onMouseLeave={() => setHovered(null)}
-                style={{ cursor: 'pointer' }}
-              />
-            </React.Fragment>
-          ))}
-        </svg>
+    <div className='solar-view' style={{ maxWidth: 1200, margin: 'auto', padding: 20 }}>
+      <h2>Solar Panel Dashboard</h2>
+      <p style={{ color: '#808080', marginTop: -20, marginBottom: 60 }}>
+        Monitor and analyze your solar panel performance in real-time.
+      </p>
 
-        {hovered && (
-          <div style={{
-            position: 'fixed',
-            top: pos.y + 10,
-            left: pos.x + 10,
-            background: '#333',
-            color: '#fff',
-            padding: '8px',
-            borderRadius: '4px',
-            pointerEvents: 'none',
-            fontSize: '13px',
-            maxWidth: 250
-          }}>
-            <strong>{hovered.model} ({hovered.serial_number})</strong><br />
-            Orientation: {hovered.orientation}°, Inclination: {hovered.inclination}°<br />
-            Voc: {hovered.voltage_voc} V, Vmp: {hovered.voltage_vmp} V<br />
-            Isc: {hovered.current_isc} A, Imp: {hovered.current_imp} A<br />
-            Installed: {new Date(hovered.installation_date).toLocaleDateString()}<br />
-            Status: <span style={{ color: getColor(hovered.status) }}>{hovered.status}</span>
-          </div>
-        )}
+      <div style={{ border: '1px solid #D3D3D3', borderRadius: 7, padding: 20 }}>
+        <h3 style={{ marginTop: -10, marginBottom: 50 }}>Solar Panel Array</h3>
 
-
-        {/* Panel ID input + 2x2 graph grid */}
-        <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', marginTop: 40 }}>
-            <form onSubmit={handleSubmit} style={{ flexShrink: 0 }}>
-                <label htmlFor="panelIdInput" style={{ display: 'block', marginBottom: 6, fontWeight: 'bold' }}>
-                Enter Panel ID:
-                </label>
-                <input
-                id="panelIdInput"
-                type="number"
-                value={panelIdInput}
-                onChange={handleInputChange}
-                placeholder="e.g. 1"
-                style={{ padding: '6px 10px', fontSize: 16, width: 120 }}
-                />
-                <button
-                type="submit"
+        <div
+          className='panel-grid'
+          style={{
+            border: '1px solid #D3D3D3',
+            borderRadius: 7,
+            padding: 20,
+            backgroundColor: '#f9f9f9',
+            maxWidth: 990,
+            margin: 'auto',
+            marginBottom: 20,
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              gap: 24,
+              justifyContent: 'flex-start',
+              flexWrap: 'wrap',
+            }}
+          >
+            {panelData.length === 0 && <p>Loading panels...</p>}
+            {panelData.map(panel => (
+              <div
+                key={panel.serial_number}
                 style={{
-                    marginTop: 10,
-                    padding: '6px 12px',
-                    fontSize: 16,
-                    cursor: 'pointer',
-                    width: '100%',
+                  position: 'relative',
+                  width: 150,
+                  padding: 12,
+                  boxShadow: '0 4px 8px rgb(0 0 0 / 0.1)',
+                  borderRadius: 12,
+                  backgroundColor: '#fff',
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                  transition: 'transform 0.2s',
+                  border: `2px solid ${selected?.serial_number === panel.serial_number ? getColor(panel.status) : 'transparent'}`, // ✅ fixed here
                 }}
+                onMouseEnter={(e) => {
+                  setHovered(panel);
+                  setPos({ x: e.clientX, y: e.clientY });
+                }}
+                onMouseMove={(e) => setPos({ x: e.clientX, y: e.clientY })}
+                onMouseLeave={() => setHovered(null)}
+                onClick={() => setSelected(panel)}
                 >
-                Show Graph
-                </button>
-                {error && <p style={{ color: 'red', marginTop: 8 }}>{error}</p>}
-            </form>
-            <div className='graphs-container' style={{ flex: 1, minWidth: 0, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 30, height: 620 /* 2 rows x ~310 height each */, maxWidth: 850 /*restrict max width to control overall size */ }}>
-                {loading && <p>Loading data for panel {panelId}...</p>}
-                {!loading && !error && data.length === 0 && (
-                <p>No data found for panel {panelId}.</p>
-                )}
-                {!loading && !error && data.length > 0 && (
-                <>
-                    {/* Voltage */}
-                    <div style={{ width: 400, height: 300 }}>
-                        <h4>Voltage (V)</h4>
-                        <ResponsiveContainer>
-                            <LineChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="hour" label={{ value: 'Hour', position: 'insideBottomRight', offset: -5 }} />
-                            <YAxis label={{ value: 'Voltage (V)', angle: -90, position: 'insideLeft' }} />
-                            <Tooltip />
-                            <Legend verticalAlign="top" height={36} />
-                            <Line type="monotone" dataKey="avg_voltage" stroke="#8884d8" name="Avg Voltage" />
-                            <Line type="monotone" dataKey="max_voltage" stroke="#0000ff" name="Max Voltage" />
-                            <Line type="monotone" dataKey="min_voltage" stroke="#aaaaaa" name="Min Voltage" />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    </div>
+                  <span
+                  style={{
+                    position: 'absolute',
+                    top: 16,
+                    right: 16,
+                    width: 10,
+                    height: 10,
+                    borderRadius: '50%',
+                    backgroundColor: getColor(panel.status),
+                    boxShadow: `0 0 8px ${getColor(panel.status)}`,
+                    border: '2px solid white',
+                  }}
+                  aria-label={`Status: ${panel.status}`}
+                  title={`Status: ${panel.status}`}
+                />
+                <img
+                  src="/solarpan.svg"
+                  alt={`Solar panel ${panel.serial_number}`}
+                  style={{ width: '100%', height: 'auto', borderRadius: 8, marginBottom: 12 }}
+                  draggable={false}
+                />
+                <div
+                  style={{
+                    textAlign: 'center',
+                    fontWeight: '600',
+                    fontSize: 16,
+                    color: '#333',
+                    userSelect: 'text',
+                  }}
+                >
+                  {panel.serial_number}
+                </div>
+              </div>
+            ))}
+          </div>
 
-                    {/* Current */}
-                    <div style={{ width: 400, height: 300 }}>
-                        <h4>Current (A)</h4>
-                        <ResponsiveContainer>
-                            <LineChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="hour" label={{ value: 'Hour', position: 'insideBottomRight', offset: -5 }} />
-                            <YAxis label={{ value: 'Current (A)', angle: -90, position: 'insideLeft' }} />
-                            <Tooltip />
-                            <Legend verticalAlign="top" height={36} />
-                            <Line type="monotone" dataKey="avg_current" stroke="#82ca9d" name="Avg Current" />
-                            <Line type="monotone" dataKey="max_current" stroke="#008000" name="Max Current" />
-                            <Line type="monotone" dataKey="min_current" stroke="#004d00" name="Min Current" />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    </div>
-
-                    {/* Temperature */}
-                    <div style={{ width: 400, height: 300 }}>
-                        <h4>Temperature (°C)</h4>
-                        <ResponsiveContainer>
-                            <LineChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="hour" label={{ value: 'Hour', position: 'insideBottomRight', offset: -5 }} />
-                            <YAxis label={{ value: 'Temperature (°C)', angle: -90, position: 'insideLeft' }} domain={['dataMin - 5', 'dataMax + 5']} />
-                            <Tooltip />
-                            <Legend verticalAlign="top" height={36} />
-                            <Line type="monotone" dataKey="avg_temperature" stroke="#ff7300" name="Avg Temperature" />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    </div>
-
-                    {/* Performance Ratio */}
-                    <div style={{ width: 400, height: 300 }}>
-                        <h4>Performance Ratio</h4>
-                        <ResponsiveContainer>
-                            <LineChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="hour" label={{ value: 'Hour', position: 'insideBottomRight', offset: -5 }} />
-                            <YAxis label={{ value: 'Performance Ratio', angle: -90, position: 'insideLeft' }} domain={[0, 1]} tickFormatter={val => val.toFixed(2)} />
-                            <Tooltip />
-                            <Legend verticalAlign="top" height={36} />
-                            <Line type="monotone" dataKey="avg_performance_ratio" stroke="#ff0000" name="Avg Performance Ratio" />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    </div>
-                </>
-                )}
+          {hovered && (
+            <div
+              style={{
+                position: 'fixed',
+                top: pos.y + 10,
+                left: pos.x + 10,
+                background: '#333',
+                color: '#fff',
+                padding: '10px 14px',
+                borderRadius: '6px',
+                pointerEvents: 'none',
+                fontSize: 13,
+                maxWidth: 270,
+                boxShadow: '0 4px 8px rgba(0,0,0,0.3)',
+                zIndex: 9999,
+                whiteSpace: 'normal',
+              }}
+            >
+              <strong>{hovered.model} ({hovered.serial_number})</strong><br />
+              Orientation: {hovered.orientation}°, Inclination: {hovered.inclination}°<br />
+              Voc: {hovered.voltage_voc} V, Vmp: {hovered.voltage_vmp} V<br />
+              Isc: {hovered.current_isc} A, Imp: {hovered.current_imp} A<br />
+              <strong>Wattage:</strong> {Math.round(hovered.voltage_vmp * hovered.current_imp)} W<br />
+              Installed: {new Date(hovered.installation_date).toLocaleDateString()}<br />
+              Status: <span style={{ color: getColor(hovered.status), fontWeight: '600' }}>{hovered.status}</span>
             </div>
-        </div>   
+          )}
+        </div>
+
+        <p style={{ color: '#808080', maxWidth: '50%', margin: 'auto' }}>
+          Click on any panel to view detailed performance data • Hover for quick stats
+        </p>
+      </div>
+
+      <h3 style={{ marginTop: 40 }}>Panel Details</h3>
+      {displayedPanel && (
+        <div style={{ border: '1px solid #D3D3D3', borderRadius: 7, padding: 20 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <h1 style={{ fontSize: 20, lineHeight: 1.8 }}>
+              {displayedPanel.serial_number} - {displayedPanel.model}<br />
+            </h1>
+            <p
+              style={{
+                margin: 0,
+                padding: '4px 12px',
+                borderRadius: 20,
+                border: `2px solid ${getColor(displayedPanel.status)}`,
+                backgroundColor: getColor(displayedPanel.status),
+                color: '#fff',
+                fontWeight: 600,
+                fontSize: 14,
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              }}
+            >
+              {displayedPanel.status}
+            </p>
+          </div>
+          <div style={{ fontSize: 15, lineHeight: 1.8 }}>
+            <p style={{ color: '#808080', marginTop: -40 }}>Detailed information and specifications</p>
+            <strong>Orientation:</strong> {displayedPanel.orientation}°<br />
+            <strong>Inclination:</strong> {displayedPanel.inclination}°<br />
+            <strong>Voc:</strong> {displayedPanel.voltage_voc} V<br />
+            <strong>Vmp:</strong> {displayedPanel.voltage_vmp} V<br />
+            <strong>Wattage:</strong> {Math.round(selected.voltage_vmp * selected.current_imp)} W<br />
+            <strong>Isc:</strong> {displayedPanel.current_isc} A<br />
+            <strong>Imp:</strong> {displayedPanel.current_imp} A<br />
+            <strong>Installation Date:</strong> {new Date(displayedPanel.installation_date).toLocaleDateString()}
+          </div>
+        </div>
+      )}
     </div>
-    </>
   );
 }
 

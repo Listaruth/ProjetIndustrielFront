@@ -175,15 +175,26 @@ body {
   color: inherit;
 }
 
-.solar-view{
-  position: relative;
-  width: 820px;
-  margin: 0 auto;      
-  text-align: center;
-}
-
 .solar-view svg {
   display: block;
   margin: 0 auto;       /* centers the svg inside the div */
   border: 1px solid #ccc;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.nav-links li {
+  display: flex;
+  align-items: center;
+}
+
+body, html, #root {
+  font-family: 'Inter', sans-serif;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }

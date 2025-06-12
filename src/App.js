@@ -21,13 +21,13 @@ function App() {
               <Hero />
               <Solutions />
               <About />
-              <Contact />
-              <Footer />
+              <Contact />         
             </div>
           }
         />
         <Route path="/solarview" element={<SolarView />} />
       </Routes>
+      <Footer />
     </>
   );
 }
