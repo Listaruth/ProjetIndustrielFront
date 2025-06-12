@@ -192,6 +192,3 @@ body {
   align-items: center;
 }
 
-body, html, #root, .App {
-  font-family: 'Inter', sans-serif;
-}

@@ -23,25 +23,24 @@ function SolarView() {
 
   // Fetch solar panel status every 60 seconds
   useEffect(() => {
-    const fetchPanels = () => {
-      fetch('http://localhost:3000/api/solarpanel')
-        .then(res => res.json())
-        .then(data => {
-          setPanelData(data.info);
-          if (!selected && data.info.length > 0) {
-            setSelected(data.info[0]);
-          } else if (selected) {
-            // Update selected panel from refreshed data
-            const updatedSelected = data.info.find(p => p.id === selected.id);
-            if (updatedSelected) setSelected(updatedSelected);
-          }
-        })
-        .catch(err => console.error("API error:", err));
-    };
-    fetchPanels();
-    const intervalId = setInterval(fetchPanels, 60000); // 60000 ms = 60 sec
-    return () => clearInterval(intervalId);
-  }, [selected]);
+  const fetchPanels = () => {
+    fetch('http://localhost:3000/api/solarpanel')
+      .then(res => res.json())
+      .then(data => {
+        setPanelData(data.info);
+        if (!selected && data.info.length > 0) {
+          setSelected(data.info[0]);
+        } else if (selected) {
+          const updatedSelected = data.info.find(p => p.id === selected.id);
+          if (updatedSelected) setSelected(updatedSelected);
+        }
+      });
+  };
+
+  fetchPanels();
+  const intervalId = setInterval(fetchPanels, 60000);
+  return () => clearInterval(intervalId);
+}, []);
 
   // Fetch measurement data every 15 minutes (900000 ms)
   useEffect(() => {
@@ -172,7 +171,20 @@ function SolarView() {
       {displayedPanel && (
         <div style={{ border: '1px solid #D3D3D3', borderRadius: 7, padding: 20 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-            <h1 style={{ fontSize: 20, lineHeight: 1.8 }}>
+            <h1 style={{ fontSize: 20, lineHeight: 1.8, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <svg
+                xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#007bff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  display: 'inline-block',
+                  verticalAlign: 'middle',
+                }}
+              >
+                <circle cx="12" cy="12" r="10" stroke="#007bff" fill="#ffffff" /> {/* Blue outline, white fill */}
+                <path d="M12 16v-4" />
+                <path d="M12 8h.01" />
+              </svg>
               {displayedPanel.serial_number} - {displayedPanel.model}
             </h1>
             <p
