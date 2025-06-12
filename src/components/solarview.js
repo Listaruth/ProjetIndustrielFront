@@ -1,4 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, Legend
+} from 'recharts';
 
 const getColor = (status) => {
   switch (status) {
@@ -14,6 +18,8 @@ function SolarView() {
   const [hovered, setHovered] = useState(null);
   const [selected, setSelected] = useState(null);
   const [pos, setPos] = useState({ x: 0, y: 0 });
+  const [measurements, setMeasurements] = useState([]);
+  const [graphView, setGraphView] = useState('performance & Wattage');
 
   useEffect(() => {
     fetch('http://localhost:3000/api/solarpanel')
@@ -21,11 +27,21 @@ function SolarView() {
       .then(data => {
         setPanelData(data.info);
         if (data.info.length > 0) {
-          setSelected(data.info[0]); // Default to first panel
+          setSelected(data.info[0]);
         }
       })
       .catch(err => console.error("API error:", err));
   }, []);
+
+  useEffect(() => {
+    const panelId = selected?.id || 1;
+    fetch(`http://localhost:3000/api/solarpanel/measure/${panelId}`)
+      .then(res => res.json())
+      .then(data => {
+        setMeasurements(data.info || []);
+      })
+      .catch(err => console.error("Measurement fetch error:", err));
+  }, [selected]);
 
   const displayedPanel = selected || panelData[0];
 
@@ -51,14 +67,7 @@ function SolarView() {
             marginBottom: 20,
           }}
         >
-          <div
-            style={{
-              display: 'flex',
-              gap: 24,
-              justifyContent: 'flex-start',
-              flexWrap: 'wrap',
-            }}
-          >
+          <div style={{ display: 'flex', gap: 24, justifyContent: 'flex-start', flexWrap: 'wrap' }}>
             {panelData.length === 0 && <p>Loading panels...</p>}
             {panelData.map(panel => (
               <div
@@ -73,7 +82,7 @@ function SolarView() {
                   cursor: 'pointer',
                   userSelect: 'none',
                   transition: 'transform 0.2s',
-                  border: `2px solid ${selected?.serial_number === panel.serial_number ? getColor(panel.status) : 'transparent'}`, // ✅ fixed here
+                  border: `2px solid ${selected?.serial_number === panel.serial_number ? getColor(panel.status) : 'transparent'}`,
                 }}
                 onMouseEnter={(e) => {
                   setHovered(panel);
@@ -82,8 +91,8 @@ function SolarView() {
                 onMouseMove={(e) => setPos({ x: e.clientX, y: e.clientY })}
                 onMouseLeave={() => setHovered(null)}
                 onClick={() => setSelected(panel)}
-                >
-                  <span
+              >
+                <span
                   style={{
                     position: 'absolute',
                     top: 16,
@@ -95,8 +104,6 @@ function SolarView() {
                     boxShadow: `0 0 8px ${getColor(panel.status)}`,
                     border: '2px solid white',
                   }}
-                  aria-label={`Status: ${panel.status}`}
-                  title={`Status: ${panel.status}`}
                 />
                 <img
                   src="/solarpan.svg"
@@ -104,15 +111,7 @@ function SolarView() {
                   style={{ width: '100%', height: 'auto', borderRadius: 8, marginBottom: 12 }}
                   draggable={false}
                 />
-                <div
-                  style={{
-                    textAlign: 'center',
-                    fontWeight: '600',
-                    fontSize: 16,
-                    color: '#333',
-                    userSelect: 'text',
-                  }}
-                >
+                <div style={{ textAlign: 'center', fontWeight: '600', fontSize: 16, color: '#333', userSelect: 'text' }}>
                   {panel.serial_number}
                 </div>
               </div>
@@ -158,7 +157,7 @@ function SolarView() {
         <div style={{ border: '1px solid #D3D3D3', borderRadius: 7, padding: 20 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
             <h1 style={{ fontSize: 20, lineHeight: 1.8 }}>
-              {displayedPanel.serial_number} - {displayedPanel.model}<br />
+              {displayedPanel.serial_number} - {displayedPanel.model}
             </h1>
             <p
               style={{
@@ -182,14 +181,148 @@ function SolarView() {
             <strong>Inclination:</strong> {displayedPanel.inclination}°<br />
             <strong>Voc:</strong> {displayedPanel.voltage_voc} V<br />
             <strong>Vmp:</strong> {displayedPanel.voltage_vmp} V<br />
-            <strong>Wattage:</strong> {Math.round(selected.voltage_vmp * selected.current_imp)} W<br />
+            <strong>Wattage:</strong> {Math.round(displayedPanel.voltage_vmp * displayedPanel.current_imp)} W<br />
             <strong>Isc:</strong> {displayedPanel.current_isc} A<br />
             <strong>Imp:</strong> {displayedPanel.current_imp} A<br />
             <strong>Installation Date:</strong> {new Date(displayedPanel.installation_date).toLocaleDateString()}
           </div>
         </div>
       )}
+
+      {/* GRAPH CONTROLS */}
+      <div style={{
+        backgroundColor: '#f1f1f1',
+        borderRadius: 6,
+        display: 'flex',
+        marginTop: 40,
+        overflow: 'hidden',
+        width: '100%',
+        maxWidth: '100%',
+        boxSizing: 'border-box',
+      }}>
+        {['performance & Wattage', 'voltage and current', 'temperature'].map(type => (
+          <button
+            key={type}
+            onClick={() => setGraphView(type)}
+            style={{
+              flex: 1,
+              border: 'none',
+              padding: '12px 0',
+              backgroundColor: graphView === type ? '#007bff' : '#f1f1f1',
+              color: graphView === type ? '#fff' : '#333',
+              cursor: 'pointer',
+              fontWeight: 600,
+              textAlign: 'center',
+            }}
+          >
+            {type.charAt(0).toUpperCase() + type.slice(1)}
+          </button>
+        ))}
+      </div>
+
+    {/* GRAPH DISPLAY */}
+    <div style={{ marginTop: -30, maxWidth: '100%'}}>
+      {measurements.length > 0 && (
+      <div style={{ marginTop: 20 }}>
+      {graphView === 'performance & Wattage' && (
+        <>
+        <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', paddingBottom: 60 }}>
+            <div style={{ flex: 1, minWidth: 300, height: 300 }}>
+              <h4 style={{ marginBottom: 10 }}>Performance Ratio</h4>
+              <div style={{ height: 300, marginBottom: 40 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={measurements}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="timestamp" tickFormatter={(ts) => new Date(ts).toLocaleTimeString()} />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Line type="monotone" dataKey="performance_ratio" stroke="#28a745" name="Performance Ratio" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            <div style={{ flex: 1, minWidth: 300, height: 300 }}>
+              <h4 style={{ marginBottom: 10 }}>Wattage</h4>
+              <div style={{ height: 300 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={measurements.map(m => ({ ...m, wattage: m.voltage * m.current }))}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="timestamp" tickFormatter={(ts) => new Date(ts).toLocaleTimeString()} />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Line type="monotone" dataKey="wattage" stroke="#ffc107" name="Wattage (W)" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {graphView === 'voltage and current' && (
+        <>
+          <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', paddingBottom: 60 }}>
+            <div style={{ flex: 1, minWidth: 300, height: 300 }}>
+              <h4 style={{ marginBottom: 10 }}>Voltage</h4>
+              <div style={{ height: 300, marginBottom: 40 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={measurements}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="timestamp" tickFormatter={(ts) => new Date(ts).toLocaleTimeString()} />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Line type="monotone" dataKey="voltage" stroke="#007bff" name="Voltage (V)" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            <div style={{ flex: 1, minWidth: 300, height: 300 }}>
+              <h4 style={{ marginBottom: 10 }}>Current</h4>
+              <div style={{ height: 300 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={measurements}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="timestamp" tickFormatter={(ts) => new Date(ts).toLocaleTimeString()} />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Line type="monotone" dataKey="current" stroke="#17a2b8" name="Current (A)" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {graphView === 'temperature' && (
+        <>
+        <div style={{ flex: 1, minWidth: 300, height: 300, paddingBottom: 40 }}>
+          <div style={{ flex: 1, minWidth: 300, height: 300 }}>
+            <h4 style={{ marginBottom: 10, marginTop: 40}}>Temperature</h4>
+            <div style={{ height: 300 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={measurements}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="timestamp" tickFormatter={(ts) => new Date(ts).toLocaleTimeString()} />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="temperature" stroke="#dc3545" name="Temperature (°C)" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+        </>
+        )}
+      </div>
+      )}
     </div>
+  </div>
   );
 }
 
