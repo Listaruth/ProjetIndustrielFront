@@ -8,6 +8,7 @@ import Footer from './components/footer';
 import './App.css';
 import { Routes, Route } from 'react-router-dom';
 import SolarView from './components/solarview';
+import AlertsPage from './components/alertPage';
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
           }
         />
         <Route path="/solarview" element={<SolarView />} />
+        <Route path="/alerts" element={<AlertsPage />} />
       </Routes>
       <Footer />
     </>

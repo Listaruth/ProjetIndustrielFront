@@ -14,14 +14,22 @@ const getColor = (status) => {
 };
 
 function SolarView() {
-  const [panelData, setPanelData] = useState([]);
-  const [hovered, setHovered] = useState(null);
-  const [selected, setSelected] = useState(null);
-  const [pos, setPos] = useState({ x: 0, y: 0 });
-  const [measurements, setMeasurements] = useState([]);
-  const [graphView, setGraphView] = useState('performance & Wattage');
+  const [panelData, setPanelData] = useState([]); // Solar panel data state
+  const [hovered, setHovered] = useState(null); // Hovered panel state
+  const [selected, setSelected] = useState(null); // Selected panel state
+  const [pos, setPos] = useState({ x: 0, y: 0 }); // Position for tooltip
+  const [measurements, setMeasurements] = useState([]); // Measurement data state
+  const [graphView, setGraphView] = useState('performance & Wattage'); // Default graph view
+  const [siteInfo, setSiteInfo] = useState(null); // Site information state
+  
+  // Robot Send Form State
+  const [selectedAction, setSelectedAction] = useState('');
+  const [actionSubmitted, setActionSubmitted] = useState(false);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  // Effect 1: Poll panels every 60 seconds, update panelData only
+
+  // Fetch panel data every minute
   useEffect(() => {
     const fetchPanels = () => {
       fetch('http://localhost:3000/api/solarpanel')
@@ -68,13 +76,57 @@ function SolarView() {
     return () => clearInterval(intervalId);
   }, [selected]);
 
-  const displayedPanel = selected || panelData[0];
 
+  // Fetch site information
+  useEffect(() => {
+    const fetchSite = () => {
+      fetch('http://localhost:3000/api/site')
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.info && data.info.length > 0) {
+            setSiteInfo(data.info[0]); // get the first site
+          }
+        })
+        .catch(err => console.error("Site fetch error:", err));
+    };
+    fetchSite();
+  }, []);
+
+
+  const displayedPanel = selected || panelData[0];
+  
   const getEfficiency = (panel) => {
     const pr = (panel.voltage_vmp * panel.current_imp) / (panel.voltage_voc * panel.current_isc || 1);
     const efficiency = pr * 25;
     return Math.max(15, efficiency); // Clamp minimum to 15%
   };
+
+  
+  // Make all the graphs use the same scale
+  const voltageDomain = [
+    0,
+    50
+  ];
+
+  const currentDomain = [
+    0,
+    12
+  ];
+
+  const wattageDomain = [
+    0,
+    500
+  ];
+
+  const tempDomain = [
+    0,
+    60
+  ];
+
+  const prDomain = [
+  0,
+  1
+  ]; 
 
   
   return (
@@ -157,8 +209,14 @@ function SolarView() {
       </div>
 
       <div style={{ border: '1px solid #D3D3D3', borderRadius: 7, padding: 20 }}>
-        <h3 style={{ marginTop: -10, marginBottom: 50 }}>Solar Panel Array</h3>
-
+        <h3 style={{ marginTop: -10, marginBottom: 50 }}>
+          Solar Panel Array
+          {siteInfo && (
+            <span style={{ fontWeight: 'bold', color: 'black' }}>
+              {' '}– Site: {siteInfo.name}, {siteInfo.location}
+            </span>
+          )}
+        </h3>
         <div
           className='panel-grid'
           style={{
@@ -355,7 +413,7 @@ function SolarView() {
                       <LineChart data={measurements}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="timestamp" tickFormatter={(ts) => new Date(ts).toLocaleTimeString()} />
-                        <YAxis />
+                        <YAxis domain={prDomain} />
                         <Tooltip />
                         <Legend />
                         <Line type="monotone" dataKey="performance_ratio" stroke="#28a745" name="Performance Ratio" dot={false} />
@@ -370,7 +428,7 @@ function SolarView() {
                       <LineChart data={measurements.map(m => ({ ...m, wattage: m.voltage * m.current }))}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="timestamp" tickFormatter={(ts) => new Date(ts).toLocaleTimeString()} />
-                        <YAxis />
+                        <YAxis domain={wattageDomain} />
                         <Tooltip />
                         <Legend />
                         <Line type="monotone" dataKey="wattage" stroke="#ffc107" name="Wattage (W)" dot={false} />
@@ -390,7 +448,8 @@ function SolarView() {
                       <LineChart data={measurements}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="timestamp" tickFormatter={(ts) => new Date(ts).toLocaleTimeString()} />
-                        <YAxis />
+                        <YAxis domain={voltageDomain} />
+
                         <Tooltip />
                         <Legend />
                         <Line type="monotone" dataKey="voltage" stroke="#007bff" name="Voltage (V)" dot={false} />
@@ -405,7 +464,7 @@ function SolarView() {
                       <LineChart data={measurements}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="timestamp" tickFormatter={(ts) => new Date(ts).toLocaleTimeString()} />
-                        <YAxis />
+                        <YAxis domain={currentDomain} />
                         <Tooltip />
                         <Legend />
                         <Line type="monotone" dataKey="current" stroke="#dc3545" name="Current (A)" dot={false} />
@@ -425,7 +484,7 @@ function SolarView() {
                       <LineChart data={measurements}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="timestamp" tickFormatter={(ts) => new Date(ts).toLocaleTimeString()} />
-                        <YAxis />
+                        <YAxis domain={tempDomain} />
                         <Tooltip />
                         <Legend />
                         <Line type="monotone" dataKey="temperature" stroke="#fd7e14" name="Temperature (°C)" dot={false} />
@@ -438,6 +497,194 @@ function SolarView() {
           </div>
         )}
       </div>
+        {/* ACTION FORM */}
+        <div
+          style={{
+            marginTop: 40,
+            padding: 20,
+            border: '1px solid #ccc',
+            borderRadius: 8,
+            backgroundColor: '#f9f9f9',
+            maxWidth: 600,
+            marginInline: 'auto',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+          }}
+        >
+          <h3 style={{ marginBottom: 20, fontWeight: 600, fontSize: 22, color: '#333' }}>
+            Panel Maintenance Action
+          </h3>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setActionSubmitted(false);
+              setError(null);
+              setLoading(true);
+
+              // Prepare payload
+              const payload = {
+                alert_id: 1, // You should replace this with actual alert ID relevant to the panel/action
+                action_type: selectedAction,
+                performed_by: 'admin', // Or get dynamically from logged-in user
+              };
+
+              if (!selectedAction) {
+                setError('Please select an action.');
+                setLoading(false);
+                return;
+              }
+
+              try {
+                const response = await fetch('http://localhost:3000/api/newAction', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(payload),
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                  setActionSubmitted(true);
+                  setSelectedAction('');
+                } else {
+                  setError(data.message || 'Failed to log action.');
+                }
+              } catch (err) {
+                setError('Network error.');
+              }
+
+              setLoading(false);
+            }}
+          >
+            <div style={{ marginBottom: 20 }}>
+              <label
+                htmlFor="panelSelect"
+                style={{
+                  display: 'block',
+                  marginBottom: 8,
+                  fontWeight: 600,
+                  color: '#444',
+                  fontSize: 14,
+                }}
+              >
+                Solar Panel
+              </label>
+              <select
+                id="panelSelect"
+                value={selected?.serial_number || ''}
+                style={{
+                  width: '100%',
+                  padding: '12px 14px',
+                  borderRadius: 6,
+                  border: '1.5px solid #ddd',
+                  backgroundColor: '#fff',
+                  fontSize: 15,
+                  color: '#333',
+                  boxShadow: 'inset 0 1px 3px rgb(0 0 0 / 0.1)',
+                  transition: 'border-color 0.3s ease',
+                  cursor: 'pointer',
+                }}
+                onChange={() => {}}
+              >
+                {panelData.map((p) => (
+                  <option key={p.id} value={p.serial_number}>
+                    {p.serial_number} - {p.model}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <label
+                htmlFor="actionSelect"
+                style={{
+                  display: 'block',
+                  marginBottom: 8,
+                  fontWeight: 600,
+                  color: '#444',
+                  fontSize: 14,
+                }}
+              >
+                Action
+              </label>
+              <select
+                id="actionSelect"
+                value={selectedAction}
+                onChange={(e) => setSelectedAction(e.target.value)}
+                required
+                style={{
+                  width: '100%',
+                  padding: '12px 14px',
+                  borderRadius: 6,
+                  border: '1.5px solid #ddd',
+                  backgroundColor: '#fff',
+                  fontSize: 15,
+                  color: '#333',
+                  boxShadow: 'inset 0 1px 3px rgb(0 0 0 / 0.1)',
+                  transition: 'border-color 0.3s ease',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="">Select an action</option>
+                <option value="Restart">Restart</option>
+                <option value="Clean">Clean</option>
+                <option value="Send Technician">Send Technician</option>
+              </select>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                width: '100%',
+                padding: '14px 0',
+                backgroundColor: loading ? '#6c757d' : '#007bff',
+                color: '#fff',
+                fontWeight: 700,
+                fontSize: 16,
+                borderRadius: 6,
+                border: 'none',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                boxShadow: '0 4px 10px rgb(0 123 255 / 0.4)',
+                transition: 'background-color 0.3s ease',
+              }}
+              onMouseEnter={(e) => {
+                if (!loading) e.currentTarget.style.backgroundColor = '#0056b3';
+              }}
+              onMouseLeave={(e) => {
+                if (!loading) e.currentTarget.style.backgroundColor = '#007bff';
+              }}
+            >
+              {loading ? 'Submitting...' : 'Submit Action'}
+            </button>
+          </form>
+
+          {error && (
+            <p
+              style={{
+                marginTop: 16,
+                color: 'red',
+                fontWeight: 600,
+                fontSize: 15,
+                textAlign: 'center',
+              }}
+            >
+              {error}
+            </p>
+          )}
+
+          {actionSubmitted && (
+            <p
+              style={{
+                marginTop: 16,
+                color: 'green',
+                fontWeight: 600,
+                fontSize: 15,
+                textAlign: 'center',
+              }}
+            >
+              Action has been logged successfully!
+            </p>
+          )}
+        </div>
     </div>
   );
 }
