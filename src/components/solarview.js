@@ -21,26 +21,36 @@ function SolarView() {
   const [measurements, setMeasurements] = useState([]);
   const [graphView, setGraphView] = useState('performance & Wattage');
 
-  // Fetch solar panel status every 60 seconds
+  // Effect 1: Poll panels every 60 seconds, update panelData only
   useEffect(() => {
-  const fetchPanels = () => {
-    fetch('http://localhost:3000/api/solarpanel')
-      .then(res => res.json())
-      .then(data => {
-        setPanelData(data.info);
-        if (!selected && data.info.length > 0) {
-          setSelected(data.info[0]);
-        } else if (selected) {
-          const updatedSelected = data.info.find(p => p.id === selected.id);
-          if (updatedSelected) setSelected(updatedSelected);
-        }
-      });
-  };
+    const fetchPanels = () => {
+      fetch('http://localhost:3000/api/solarpanel')
+        .then(res => res.json())
+        .then(data => {
+          setPanelData(data.info);
+        })
+        .catch(err => console.error("API error:", err));
+    };
 
-  fetchPanels();
-  const intervalId = setInterval(fetchPanels, 60000);
-  return () => clearInterval(intervalId);
-}, []);
+    fetchPanels();
+    const intervalId = setInterval(fetchPanels, 60000);
+    return () => clearInterval(intervalId);
+  }, []); // no dependencies needed here
+
+  // Effect 2: Update selected when panelData changes
+  useEffect(() => {
+    if (panelData.length === 0) return;
+
+    if (!selected) {
+      setSelected(panelData[0]);
+    } else {
+      const updatedSelected = panelData.find(p => p.id === selected.id);
+      if (updatedSelected) {
+        setSelected(updatedSelected);
+      }
+    }
+  }, [panelData, selected]);
+
 
   // Fetch measurement data every 15 minutes (900000 ms)
   useEffect(() => {
@@ -60,12 +70,91 @@ function SolarView() {
 
   const displayedPanel = selected || panelData[0];
 
+  const getEfficiency = (panel) => {
+    const pr = (panel.voltage_vmp * panel.current_imp) / (panel.voltage_voc * panel.current_isc || 1);
+    const efficiency = pr * 25;
+    return Math.max(15, efficiency); // Clamp minimum to 15%
+  };
+
+  
   return (
     <div className='solar-view' style={{ maxWidth: 1200, margin: 'auto', padding: 20 }}>
       <h2>Solar Panel Dashboard</h2>
       <p style={{ color: '#808080', marginTop: -20, marginBottom: 60 }}>
         Monitor and analyze your solar panel performance in real-time.
       </p>
+      {/* Summary Cards Section */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        flexWrap: 'nowrap',
+        gap: 20,
+        margin: '40px auto',
+        maxWidth: 1200,
+      }}>
+        {/* Card 1: Total Power Output */}
+        <div style={{
+          flex: 1,
+          backgroundColor: '#fffbea',
+          borderRadius: 10,
+          padding: 20,
+          border: '1px solid #f9e79f',
+          boxShadow: '0 4px 8px rgba(0,0,0,0.05)',
+        }}>
+          <h4 style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10, color: '#ffc107' }}>
+            ⚡ Total Power Output
+          </h4>
+          <div style={{ fontSize: 26, fontWeight: 700, color: '#333' }}>
+            {Math.round(panelData.reduce((sum, p) => sum + (p.voltage_vmp * p.current_imp), 0))} W
+          </div>
+          <div style={{ fontSize: 14, color: '#888' }}>
+            {(panelData.reduce((sum, p) => sum + (p.voltage_vmp * p.current_imp), 0) / 1000).toFixed(2)} kW
+          </div>
+        </div>
+
+        {/* Card 2: Active Panels */}
+        <div style={{
+          flex: 1,
+          backgroundColor: '#e9f7ef',
+          borderRadius: 10,
+          padding: 20,
+          border: '1px solid #d4efdf',
+          boxShadow: '0 4px 8px rgba(0,0,0,0.05)',
+        }}>
+          <h4 style={{ marginBottom: 12, color: '#28a745' }}>
+            Active Panels
+          </h4>
+          <div style={{ fontSize: 26, fontWeight: 700, color: '#333' }}>
+            {panelData.filter(p => p.status === 'Active').length} / {panelData.length}
+          </div>
+          <div style={{ fontSize: 14, color: '#888' }}>
+            {((panelData.filter(p => p.status === 'Active').length / panelData.length) * 100).toFixed(0)}% operational
+          </div>
+        </div>
+
+        {/* Card 3: Avg. Efficiency */}
+        <div style={{
+          flex: 1,
+          backgroundColor: '#eafaf1',
+          borderRadius: 10,
+          padding: 20,
+          border: '1px solid #d1f2eb',
+          boxShadow: '0 4px 8px rgba(0,0,0,0.05)',
+        }}>
+          <h4 style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10, color: '#28a745' }}>
+            🔋 Avg. Efficiency
+          </h4>
+          <div style={{ fontSize: 26, fontWeight: 700, color: '#333' }}>
+            {panelData.length > 0
+              ? `${(
+                  panelData.reduce((sum, p) => sum + getEfficiency(p), 0) / panelData.length).toFixed(1)}%`
+              : 'N/A'}
+          </div>
+          <div style={{ fontSize: 14, color: '#888' }}>
+            Good Performance
+          </div>
+        </div>
+      </div>
 
       <div style={{ border: '1px solid #D3D3D3', borderRadius: 7, padding: 20 }}>
         <h3 style={{ marginTop: -10, marginBottom: 50 }}>Solar Panel Array</h3>
@@ -156,6 +245,8 @@ function SolarView() {
               Voc: {hovered.voltage_voc} V, Vmp: {hovered.voltage_vmp} V<br />
               Isc: {hovered.current_isc} A, Imp: {hovered.current_imp} A<br />
               <strong>Wattage:</strong> {Math.round(hovered.voltage_vmp * hovered.current_imp)} W<br />
+              <strong>Wattage:</strong> {Math.round(hovered.voltage_vmp * hovered.current_imp)} W<br />
+              <strong>Efficiency:</strong> { getEfficiency(hovered).toFixed(1) }%<br />
               Installed: {new Date(hovered.installation_date).toLocaleDateString()}<br />
               Status: <span style={{ color: getColor(hovered.status), fontWeight: '600' }}>{hovered.status}</span>
             </div>
@@ -210,6 +301,9 @@ function SolarView() {
             <strong>Voc:</strong> {displayedPanel.voltage_voc} V<br />
             <strong>Vmp:</strong> {displayedPanel.voltage_vmp} V<br />
             <strong>Wattage:</strong> {Math.round(displayedPanel.voltage_vmp * displayedPanel.current_imp)} W<br />
+
+            {/* Need to add efficiency rating of panel in the details section */}
+
             <strong>Isc:</strong> {displayedPanel.current_isc} A<br />
             <strong>Imp:</strong> {displayedPanel.current_imp} A<br />
             <strong>Installation Date:</strong> {new Date(displayedPanel.installation_date).toLocaleDateString()}
@@ -251,7 +345,7 @@ function SolarView() {
       {/* GRAPH DISPLAY */}
       <div style={{ marginTop: -30, maxWidth: '100%' }}>
         {measurements.length > 0 && (
-          <div style={{ marginTop: 20 }}>
+          <div style={{ marginTop: 20 }}>           
             {graphView === 'performance & Wattage' && (
               <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', paddingBottom: 60 }}>
                 <div style={{ flex: 1, minWidth: 300, height: 300 }}>
