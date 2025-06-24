@@ -20,14 +20,14 @@ const Contact = () => {
     e.preventDefault();
 
     emailjs.send(
-      'service_ja5gbzw',
-      'template_5g4vclw',
+      process.env.REACT_APP_EMAILJS_SERVICE_ID, //Service ID
+      process.env.REACT_APP_EMAILJS_TEMPLATE_ID, // Template ID
       {
         user_name: formData.name,
         user_email: formData.email,
         message: formData.message
       },
-      '5kB-gp9-J7EmKBOVa'
+      process.env.REACT_APP_EMAILJS_PUBLIC_KEY // Public Key
     )
     .then(() => {
       alert('Message sent successfully!');
